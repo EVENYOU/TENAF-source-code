@@ -1,0 +1,110 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.Events;
+
+// Copyright (c) 2026 Daniel Chalkarov (Evenyou Entertainment)
+// Licensed under CC BY-NC 4.0
+// This script implements the stage-based movement logic for enemies in a FNAF-style horror game.
+
+public class GenericAnimatronicAI : MonoBehaviour
+{
+    [Header("Visual Stages")]
+    [Tooltip("GameObjects to be enabled at each stage (Index 0 = hidden or starting position)")]
+    public GameObject[] stageVisuals;
+    public GameObject jumpscareObject;
+
+    [Header("Settings")]
+    [Range(0, 10)] public int currentStage = 0;
+    public bool isEnabled = true;
+
+    [Header("Difficulty (Time in seconds between moves)")]
+    public float minWaitTime = 10f;
+    public float maxWaitTime = 15f;
+
+    [Header("Events")]
+    [Tooltip("Triggered every time the enemy moves to a new stage")]
+    public UnityEvent OnMove; 
+    
+    [Tooltip("Triggered when the enemy reaches the final stage and kills the player")]
+    public UnityEvent OnJumpscare; 
+
+    [Header("Effects (Optional)")]
+    public AudioSource audioSource;
+    public AudioClip moveSound;
+    public AudioClip jumpscareSound;
+
+    private Coroutine _aiRoutine;
+
+    private void Start()
+    {
+        UpdateVisuals();
+        if (isEnabled) StartAI();
+    }
+
+    public void StartAI()
+    {
+        if (_aiRoutine != null) StopCoroutine(_aiRoutine);
+        _aiRoutine = StartCoroutine(AIRoutine());
+    }
+
+    public void StopAI()
+    {
+        if (_aiRoutine != null) StopCoroutine(_aiRoutine);
+    }
+
+    private IEnumerator AIRoutine()
+    {
+        while (isEnabled)
+        {
+            // Random delay before the next movement step
+            float waitTime = Random.Range(minWaitTime, maxWaitTime);
+            yield return new WaitForSeconds(waitTime);
+
+            MoveToNextStage();
+        }
+    }
+
+    public void MoveToNextStage()
+    {
+        currentStage++;
+        
+        if (currentStage < stageVisuals.Length)
+        {
+            // Standard movement step
+            UpdateVisuals();
+            OnMove?.Invoke();
+            if (audioSource && moveSound) audioSource.PlayOneShot(moveSound);
+        }
+        else
+        {
+            // Final stage reached
+            TriggerJumpscare();
+        }
+    }
+
+    public void ResetAI()
+    {
+        currentStage = 0;
+        UpdateVisuals();
+    }
+
+    private void UpdateVisuals()
+    {
+        // Enable the model for the current stage and disable all others
+        for (int i = 0; i < stageVisuals.Length; i++)
+        {
+            if (stageVisuals[i] != null)
+                stageVisuals[i].SetActive(i == currentStage);
+        }
+    }
+
+    private void TriggerJumpscare()
+    {
+        isEnabled = false;
+        if (jumpscareObject) jumpscareObject.SetActive(true);
+        if (audioSource && jumpscareSound) audioSource.PlayOneShot(jumpscareSound);
+        
+        OnJumpscare?.Invoke();
+        Debug.Log("AI: Jumpscare Triggered!");
+    }
+}
